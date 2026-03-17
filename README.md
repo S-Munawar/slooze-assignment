@@ -1,34 +1,55 @@
 # Slooze Food Ordering App
 
-Slooze is a full-stack Next.js App Router project for food ordering with role-based access control (RBAC) and country-scoped data access.
+Slooze is a full-stack food ordering application built with Next.js App Router, Prisma, and PostgreSQL. It uses role-based access control (RBAC) plus country-scoped access so users only see allowed restaurant and order data.
+
+## Project Overview
+
+- Single Next.js 14 app for both frontend and API route handlers
+- Credentials-based authentication with NextAuth.js v5 and JWT sessions
+- Strict access control for `ADMIN`, `MANAGER`, and `MEMBER`
+- Country-based data scoping for non-admin users (`INDIA`, `AMERICA`)
+- Server-side validation using Zod for all mutations
+- Prisma ORM for typed database access
 
 ## Features
 
-- Credentials login with NextAuth.js v5 (JWT sessions)
-- Strict RBAC (`ADMIN`, `MANAGER`, `MEMBER`) enforced in API handlers
-- Country scoping (`INDIA`, `AMERICA`) applied to database queries
-- Restaurant listing and menu browsing
-- Cart with per-restaurant constraint (auto-clear confirmation)
-- Order creation, checkout, cancellation, and payment updates
-- Zod validation for all mutation payloads
-- Prisma + PostgreSQL persistence with deterministic seed data
+- Login with seeded users
+- Browse restaurants and menus by country scope
+- Add menu items to a cart (cart is constrained to one restaurant)
+- Create and checkout orders
+- Order history with role-based actions
+- Payment method update (admin only)
 
 ## Tech Stack
 
 - Next.js 14 (App Router)
-- TypeScript (strict)
+- TypeScript (strict mode)
 - Tailwind CSS
-- Prisma ORM + PostgreSQL
-- NextAuth.js v5 (Credentials provider)
-- Zustand (cart state)
+- NextAuth.js v5 (Credentials Provider)
+- Prisma + PostgreSQL
+- Zustand (cart)
 - TanStack Query (server state)
-- Zod (input validation)
+- Zod (schema validation)
 
 ## Prerequisites
 
 - Node.js 18+
-- PostgreSQL
+- PostgreSQL running locally or remotely
 - pnpm
+
+## Environment Variables
+
+Create `.env` in project root:
+
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/slooze
+NEXTAUTH_SECRET=your-secret-here
+NEXTAUTH_URL=http://localhost:3000
+```
+
+Note:
+- `DIRECT_URL` is optional in this repo (current Prisma schema does not require it).
+- If you later add `directUrl = env("DIRECT_URL")` in Prisma datasource, set `DIRECT_URL` to your direct/non-pooled database connection string.
 
 ## Setup
 
@@ -36,13 +57,13 @@ Slooze is a full-stack Next.js App Router project for food ordering with role-ba
 git clone <your-repo-url>
 cd slooze-assignment
 pnpm install
-cp .env.example .env
 pnpm prisma migrate dev --name init
 pnpm prisma db seed
+pnpm prisma generate
 pnpm dev
 ```
 
-## Seeded Credentials
+## Seeded Login Credentials
 
 | Name | Role | Country | Email | Password |
 | --- | --- | --- | --- | --- |
@@ -57,26 +78,58 @@ pnpm dev
 
 | Action | ADMIN | MANAGER | MEMBER |
 | --- | --- | --- | --- |
-| View restaurants/menu (country-scoped) | Yes | Yes | Yes |
+| View restaurants/menu (country scoped) | Yes | Yes | Yes |
 | Create order | Yes | Yes | Yes |
-| View orders | All | Own + country | Own + country |
+| View orders | All | Own + country scope | Own + country scope |
 | Checkout order | Yes | Yes | No |
 | Cancel order | Yes | Yes | No |
 | Update payment method | Yes | No | No |
 
 ## API Routes
 
+All APIs return a consistent envelope:
+
+```json
+{ "success": true, "data": {} }
+```
+
+or
+
+```json
+{ "success": false, "error": "message" }
+```
+
 | Method | Route | Access | Description |
 | --- | --- | --- | --- |
-| GET | `/api/restaurants` | ADMIN, MANAGER, MEMBER | List restaurants with country scope |
+| GET | `/api/restaurants` | ADMIN, MANAGER, MEMBER | List restaurants with country filter |
 | GET | `/api/restaurants/:id` | ADMIN, MANAGER, MEMBER | Get one restaurant with country guard |
 | GET | `/api/restaurants/:id/menu` | ADMIN, MANAGER, MEMBER | Get menu items for a restaurant |
-| GET | `/api/orders` | ADMIN, MANAGER, MEMBER | List orders by role + country scope |
-| POST | `/api/orders` | ADMIN, MANAGER, MEMBER | Create order from validated items |
+| GET | `/api/orders` | ADMIN, MANAGER, MEMBER | List orders by role and scope |
+| POST | `/api/orders` | ADMIN, MANAGER, MEMBER | Create order with server-side price computation |
 | GET | `/api/orders/:id` | ADMIN, MANAGER, MEMBER | Get one order with ownership checks |
-| POST | `/api/orders/:id/checkout` | ADMIN, MANAGER | Confirm order |
-| PATCH | `/api/orders/:id/cancel` | ADMIN, MANAGER | Cancel allowed statuses |
-| PATCH | `/api/orders/:id/payment` | ADMIN | Update payment method |
+| POST | `/api/orders/:id/checkout` | ADMIN, MANAGER | Mark order as `CONFIRMED` |
+| PATCH | `/api/orders/:id/cancel` | ADMIN, MANAGER | Mark order as `CANCELLED` (allowed statuses only) |
+| PATCH | `/api/orders/:id/payment` | ADMIN | Update order payment method |
+
+## Helpful Commands
+
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm prisma migrate dev --name init
+pnpm prisma db seed
+pnpm prisma generate
+```
+
+## Troubleshooting
+
+- `Cannot find module 'autoprefixer'`
+  - Run: `pnpm add -D autoprefixer`
+- `Cannot find module '.prisma/client/default'`
+  - Run: `pnpm prisma generate`
+- Prisma install/build scripts were skipped by pnpm
+  - Run `pnpm prisma generate` manually after install.
 
 ## Architecture
 
@@ -88,8 +141,8 @@ flowchart TD
   C --> E[Zod Validation]
   C --> F[Prisma ORM]
   F --> G[(PostgreSQL)]
-  A --> H[NextAuth Client Session]
-  H --> I[NextAuth v5 Auth Config]
+  A --> H[NextAuth Session]
+  H --> I[NextAuth v5 Config]
   I --> F
   A --> J[Zustand Cart Store]
 ```
