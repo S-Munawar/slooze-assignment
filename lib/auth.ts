@@ -14,6 +14,8 @@ const credentialsSchema = z.object({
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
+  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
@@ -25,31 +27,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const parsed = credentialsSchema.safeParse(credentials);
-        if (!parsed.success) {
+        try {
+          const parsed = credentialsSchema.safeParse(credentials);
+          if (!parsed.success) {
+            return null;
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { email: parsed.data.email },
+          });
+
+          if (!user) {
+            return null;
+          }
+
+          const passwordMatched = await bcrypt.compare(parsed.data.password, user.password);
+          if (!passwordMatched) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            country: user.country,
+          };
+        } catch (error) {
+          console.error("Credentials authorize failed", error);
           return null;
         }
-
-        const user = await prisma.user.findUnique({
-          where: { email: parsed.data.email },
-        });
-
-        if (!user) {
-          return null;
-        }
-
-        const passwordMatched = await bcrypt.compare(parsed.data.password, user.password);
-        if (!passwordMatched) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          country: user.country,
-        };
       },
     }),
   ],
