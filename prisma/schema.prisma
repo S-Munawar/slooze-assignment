@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String    @id @default(cuid())
+  name     String
+  email    String    @unique
+  password String
+  role     Role
+  country  Country?
+  orders   Order[]
+}
+
+model Restaurant {
+  id       String    @id @default(cuid())
+  name     String
+  cuisine  String
+  country  Country
+  imageUrl String?
+  items    MenuItem[]
+  orders   Order[]
+}
+
+model MenuItem {
+  id           String      @id @default(cuid())
+  name         String
+  description  String
+  price        Float
+  category     String
+  imageUrl     String?
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  orderItems   OrderItem[]
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  userId        String
+  restaurantId  String
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod @default(CARD)
+  totalAmount   Float
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          User          @relation(fields: [userId], references: [id])
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id])
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  price      Float
+  order      Order    @relation(fields: [orderId], references: [id])
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum Country {
+  INDIA
+  AMERICA
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  UPI
+  WALLET
+}
