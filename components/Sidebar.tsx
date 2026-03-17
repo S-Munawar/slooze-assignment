@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 
 import type { SessionUser } from "@/types";
 import { useCartStore } from "@/store/cart";
@@ -43,6 +44,14 @@ export default function Sidebar({ user }: SidebarProps) {
           </Link>
         ))}
       </nav>
+
+      <button
+        type="button"
+        onClick={() => signOut({ callbackUrl: "/login" })}
+        className="mt-8 w-full rounded-lg border border-slate-300 px-3 py-2 text-left font-medium text-slate-700 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+      >
+        Logout
+      </button>
     </aside>
   );
 }
